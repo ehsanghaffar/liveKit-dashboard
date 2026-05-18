@@ -7,12 +7,17 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { type LogEntry, type LogLevel } from "@/lib/mock-data"
+import type { StoredWebhookEvent } from "@/lib/webhook-store"
 import { useI18n } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
-const levelStyles: Record<LogLevel, string> = {
-  debug: "text-muted-foreground",
+const eventLevel = (event: string): "info" | "warn" | "error" => {
+  if (event.includes("finished") || event.includes("left") || event.includes("aborted")) return "warn"
+  if (event.includes("error") || event.includes("failed")) return "error"
+  return "info"
+}
+
+const levelStyles: Record<string, string> = {
   info: "text-chart-2",
   warn: "text-warning",
   error: "text-destructive",
@@ -20,9 +25,9 @@ const levelStyles: Record<LogLevel, string> = {
 
 export function LogsView() {
   const { t } = useI18n()
-  const [logs, setLogs] = useState<LogEntry[]>([])
+  const [logs, setLogs] = useState<StoredWebhookEvent[]>([])
   const [paused, setPaused] = useState(false)
-  const [level, setLevel] = useState<"all" | LogLevel>("all")
+  const [level, setLevel] = useState<string>("all")
   const [query, setQuery] = useState("")
   const [view, setView] = useState<"raw" | "json">("raw")
   const [autoscroll, setAutoscroll] = useState(true)
@@ -31,44 +36,51 @@ export function LogsView() {
 
   // Fetch webhook events from API
   useEffect(() => {
+    let cancelled = false
     const fetchLogs = async () => {
       try {
         const res = await fetch('/api/events?limit=300')
         if (res.ok) {
           const data = await res.json()
-          setLogs(data.events || [])
+          if (!cancelled) setLogs(data.events || [])
         }
       } catch (err) {
-        console.error('Failed to fetch logs:', err)
+        if (!cancelled) console.error('Failed to fetch logs:', err)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
     fetchLogs()
+    return () => { cancelled = true }
   }, [])
 
   // Poll for new webhook events
   useEffect(() => {
     if (paused) return
+    let cancelled = false
     const id = setInterval(async () => {
       try {
         const res = await fetch('/api/events?limit=300')
         if (res.ok) {
           const data = await res.json()
-          setLogs(data.events || [])
+          if (!cancelled) setLogs(data.events || [])
         }
       } catch (err) {
-        console.error('Failed to fetch logs:', err)
+        if (!cancelled) console.error('Failed to fetch logs:', err)
       }
     }, 3000)
-    return () => clearInterval(id)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
   }, [paused])
 
   const filtered = useMemo(() => {
     return logs.filter((l) => {
-      if (level !== "all" && l.level !== level) return false
-      if (query && !`${l.service} ${l.message}`.toLowerCase().includes(query.toLowerCase())) return false
+      const lvl = eventLevel(l.event)
+      if (level !== "all" && lvl !== level) return false
+      if (query && !`${l.event} ${l.room || ""} ${l.participant || ""}`.toLowerCase().includes(query.toLowerCase())) return false
       return true
     })
   }, [logs, level, query])
@@ -137,22 +149,26 @@ export function LogsView() {
           <span className="ms-auto text-[11px] font-mono text-muted-foreground">{filtered.length} lines</span>
         </div>
         <div ref={containerRef} className="font-mono text-xs h-[520px] overflow-auto scrollbar-thin p-4 space-y-0.5 bg-background/40">
-          {filtered.map((l) => (
-            <div key={l.id} className="flex gap-3 py-0.5 hover:bg-accent/30 px-2 rounded">
-              <span className="text-muted-foreground shrink-0 tabular-nums">
-                {new Date(l.ts).toISOString().split("T")[1].slice(0, 12)}
-              </span>
-              <span className={cn("shrink-0 w-12 uppercase font-semibold", levelStyles[l.level])}>{l.level}</span>
-              <span className="text-chart-1 shrink-0">[{l.service}]</span>
-              {view === "raw" ? (
-                <span className="text-foreground truncate">{l.message}</span>
-              ) : (
-                <span className="text-muted-foreground truncate">
-                  {JSON.stringify({ msg: l.message, ...l.meta })}
-                </span>
-              )}
-            </div>
-          ))}
+          {filtered.map((l) => {
+            const lvl = eventLevel(l.event)
+            const ts = l.createdAt * 1000
+            const time = isNaN(ts) ? "--:--:--" : new Date(ts).toISOString().split("T")[1]?.slice(0, 12) ?? "--:--:--"
+            const source = l.room || l.participant || "system"
+            return (
+              <div key={l.id} className="flex gap-3 py-0.5 hover:bg-accent/30 px-2 rounded">
+                <span className="text-muted-foreground shrink-0 tabular-nums">{time}</span>
+                <span className={cn("shrink-0 w-14 uppercase font-semibold", levelStyles[lvl])}>{lvl}</span>
+                <span className="text-chart-1 shrink-0">[{source}]</span>
+                {view === "raw" ? (
+                  <span className="text-foreground truncate">{l.event}{l.room ? ` — ${l.room}` : ""}</span>
+                ) : (
+                  <span className="text-muted-foreground truncate">
+                    {JSON.stringify({ event: l.event, room: l.room, participant: l.participant })}
+                  </span>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>
