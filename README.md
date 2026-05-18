@@ -43,7 +43,7 @@ LIVEKIT_API_SECRET=<your_livekit_api_secret>
 LIVEKIT_REGION=auto
 ```
 
-If you do not set LiveKit environment variables, the app will run in mock mode and return example room/participant data.
+If you do not set LiveKit environment variables, the app will return an error on API routes instead of falling back to mock data.
 
 ### 4. Optional: Start a local LiveKit cluster
 
