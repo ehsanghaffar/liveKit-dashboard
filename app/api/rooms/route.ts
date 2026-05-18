@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { isLiveKitConfigured, getRoomService } from "@/lib/livekit-server"
-import { mockRooms } from "@/lib/mock-data"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -12,7 +11,10 @@ function bigintToNumber(v: bigint | number | undefined): number {
 
 export async function GET() {
   if (!isLiveKitConfigured()) {
-    return NextResponse.json({ rooms: mockRooms, mock: true })
+    return NextResponse.json(
+      { error: "LiveKit is not configured." },
+      { status: 400 }
+    )
   }
   try {
     const svc = getRoomService()
@@ -40,7 +42,7 @@ export async function GET() {
         metadata: r.metadata ?? "",
       }
     })
-    return NextResponse.json({ rooms: mapped, mock: false })
+    return NextResponse.json({ rooms: mapped })
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unknown error" },

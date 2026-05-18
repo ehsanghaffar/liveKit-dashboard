@@ -7,7 +7,10 @@ export const runtime = "nodejs"
 
 export async function GET() {
   if (!isLiveKitConfigured()) {
-    return NextResponse.json({ egresses: [], mock: true })
+    return NextResponse.json(
+      { error: "LiveKit is not configured." },
+      { status: 400 }
+    )
   }
   try {
     const client = getEgressClient()

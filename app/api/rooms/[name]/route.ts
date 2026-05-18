@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { isLiveKitConfigured, getRoomService } from "@/lib/livekit-server"
-import { mockParticipants } from "@/lib/mock-data"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -11,7 +10,10 @@ export async function GET(_req: Request, ctx: Ctx) {
   const { name } = await ctx.params
   const room = decodeURIComponent(name)
   if (!isLiveKitConfigured()) {
-    return NextResponse.json({ room, participants: mockParticipants, mock: true })
+    return NextResponse.json(
+      { error: "LiveKit is not configured." },
+      { status: 400 }
+    )
   }
   try {
     const svc = getRoomService()
@@ -44,7 +46,7 @@ export async function GET(_req: Request, ctx: Ctx) {
         mimeType: t.mimeType,
       })),
     }))
-    return NextResponse.json({ room, participants: mapped, mock: false })
+    return NextResponse.json({ room, participants: mapped })
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unknown error" },
