@@ -174,7 +174,7 @@ export function TokensView() {
             </div>
 
             <div className="grid grid-cols-3 gap-2">
-              <Button variant="outline" disabled={!token} onClick={() => { navigator.clipboard.writeText(token); toast.success(t("common.copied")) }}>
+              <Button variant="outline" disabled={!token} onClick={() => { navigator.clipboard.writeText(token).catch(() => toast.error("Failed to copy")); toast.success(t("common.copied")) }}>
                 <Copy className="size-4" /> {t("common.copy")}
               </Button>
               <Button variant="outline" disabled={!token}>

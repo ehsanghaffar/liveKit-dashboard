@@ -56,7 +56,7 @@ export function RoomDetailView({ roomId }: { roomId: string }) {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm">{t("rooms.invite")}</Button>
-            <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(roomId); toast.success(t("common.copied")) }}>
+            <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(roomId).catch(() => toast.error("Failed to copy")); toast.success(t("common.copied")) }}>
               {t("rooms.copyId")}
             </Button>
             <Button variant="destructive" size="sm">{t("rooms.disconnect")}</Button>

@@ -253,7 +253,7 @@ export function RoomsView() {
                             <Eye className="size-4" /> {t("rooms.inspect")}
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => { navigator.clipboard.writeText(r.id); toast.success(t("common.copied")) }}>
+                        <DropdownMenuItem onClick={() => { navigator.clipboard.writeText(r.id).catch(() => toast.error("Failed to copy")); toast.success(t("common.copied")) }}>
                           <Copy className="size-4" /> {t("rooms.copyId")}
                         </DropdownMenuItem>
                         <DropdownMenuItem>
