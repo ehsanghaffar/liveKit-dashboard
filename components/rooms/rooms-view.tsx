@@ -21,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { StatusBadge } from "@/components/dashboard/status-badge"
 import { useRooms } from "@/hooks/useRooms"
@@ -32,10 +33,13 @@ const REGIONS = ["us-east-1", "us-west-2", "eu-west-1", "ap-southeast-1", "me-ce
 
 export function RoomsView() {
   const { t } = useI18n()
-  const { rooms, loading } = useRooms()
+  const { rooms, loading, refetch } = useRooms()
   const [query, setQuery] = useState("")
   const [region, setRegion] = useState<string>("all")
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [roomName, setRoomName] = useState("")
+  const [isCreating, setIsCreating] = useState(false)
 
   const filtered = useMemo(() => {
     return rooms.filter((r) => {
@@ -59,11 +63,43 @@ export function RoomsView() {
     }
   }
 
-  function toggle(id: string) {
+  function toggleRow(id: string) {
     const next = new Set(selected)
     if (next.has(id)) next.delete(id)
     else next.add(id)
     setSelected(next)
+  }
+
+  async function createRoom() {
+    const name = roomName.trim()
+    if (!name) {
+      toast.error("Room name is required.")
+      return
+    }
+
+    setIsCreating(true)
+    try {
+      const res = await fetch('/api/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || `HTTP ${res.status}`)
+      }
+
+      const data = await res.json()
+      toast.success(`Room ${data.room?.name ?? name} created.`)
+      setRoomName("")
+      setDialogOpen(false)
+      await refetch()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create room")
+    } finally {
+      setIsCreating(false)
+    }
   }
 
   return (
@@ -73,9 +109,38 @@ export function RoomsView() {
           <h1 className="text-2xl lg:text-3xl font-semibold tracking-tight">{t("rooms.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t("rooms.subtitle")}</p>
         </div>
-        <Button>
-          <Plus className="size-4" /> {t("rooms.new")}
-        </Button>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="size-4" /> {t("rooms.new")}
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create room</DialogTitle>
+              <DialogDescription>Enter a unique room name to create a new LiveKit room.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <label className="block text-sm font-medium text-muted-foreground">
+                Room name
+              </label>
+              <Input
+                value={roomName}
+                onChange={(event) => setRoomName(event.target.value)}
+                placeholder="e.g. marketing-demo"
+                autoFocus
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="secondary" type="button" onClick={() => setDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={createRoom} disabled={isCreating}>
+                {isCreating ? "Creating..." : "Create room"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Toolbar */}
@@ -140,7 +205,7 @@ export function RoomsView() {
               filtered.map((r) => (
                 <TableRow key={r.id} className={cn("border-border", selected.has(r.id) && "bg-accent/40")}>
                   <TableCell>
-                    <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} aria-label="Select row" />
+                    <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggleRow(r.id)} aria-label="Select row" />
                   </TableCell>
                   <TableCell>
                     <Link href={`/rooms/${r.id}`} className="group flex items-center gap-3">

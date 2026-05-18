@@ -27,6 +27,10 @@ export function RoomDetailView({ roomId }: { roomId: string }) {
   const { t } = useI18n()
   const { participants, loading } = useParticipants(roomId)
 
+  const region = process.env.NEXT_PUBLIC_LIVEKIT_REGION ?? "auto"
+  const roomStatus = participants.length > 0 ? "live" as const : "idle" as const
+  const totalBitrate = participants.reduce((sum, participant) => sum + participant.bitrateKbps, 0)
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -43,29 +47,30 @@ export function RoomDetailView({ roomId }: { roomId: string }) {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-semibold tracking-tight truncate">webinar-product-launch</h1>
-              <StatusBadge variant="live" pulse>{t("common.live")}</StatusBadge>
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-destructive bg-destructive/10 ring-1 ring-destructive/20 px-2 py-0.5 rounded-md">
-                <Disc className="size-2.5 animate-pulse-dot" /> RECORDING
-              </span>
+              <h1 className="text-2xl font-semibold tracking-tight truncate">{roomId}</h1>
+              <StatusBadge variant={roomStatus} pulse={roomStatus === "live"}>
+                {roomStatus === "live" ? t("common.live") : "Idle"}
+              </StatusBadge>
             </div>
             <div className="text-xs font-mono text-muted-foreground">{roomId}</div>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm">{t("rooms.invite")}</Button>
-            <Button variant="outline" size="sm">{t("rooms.copyId")}</Button>
+            <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(roomId); toast.success(t("common.copied")) }}>
+              {t("rooms.copyId")}
+            </Button>
             <Button variant="destructive" size="sm">{t("rooms.disconnect")}</Button>
           </div>
         </div>
 
         <div className="mt-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {[
-            { l: t("rooms.participants"), v: "12 / 500" },
-            { l: t("common.region"), v: "us-east-1" },
-            { l: t("rooms.codec"), v: "VP9" },
-            { l: t("rooms.bitrate"), v: "2.4 Mbps" },
-            { l: t("common.duration"), v: formatDuration(3842) },
-            { l: t("dashboard.transports"), v: "24" },
+            { l: t("rooms.participants"), v: `${participants.length}` },
+            { l: t("common.region"), v: region },
+            { l: t("rooms.codec"), v: "VP8" },
+            { l: t("rooms.bitrate"), v: formatBytes(totalBitrate) },
+            { l: t("common.duration"), v: "Unknown" },
+            { l: t("dashboard.transports"), v: `${participants.length}` },
           ].map((s) => (
             <div key={s.l} className="rounded-xl bg-accent/40 ring-1 ring-border p-3">
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.l}</div>
