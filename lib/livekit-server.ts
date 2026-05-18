@@ -152,9 +152,9 @@ export async function createAccessToken(grants: TokenGrants): Promise<string> {
   const videoGrant: VideoGrant = {
     roomJoin: true,
     room: grants.room || '',
-    canPublish: grants.canPublish !== false, // default true
-    canSubscribe: grants.canSubscribe !== false, // default true
-    canPublishData: grants.canPublishData === true, // default false
+    canPublish: grants.canPublish ?? false,
+    canSubscribe: grants.canSubscribe ?? false,
+    canPublishData: grants.canPublishData ?? false,
   }
 
   at.addGrant(videoGrant)

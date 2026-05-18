@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     const auth = req.headers.get("authorization") ?? ""
     const body = await req.text()
     const receiver = getWebhookReceiver()
-    const event = await receiver.receive(body, auth, true)
+    const event = await receiver.receive(body, auth)
     recordWebhookEvent({
       id: event.id ?? crypto.randomUUID(),
       event: event.event ?? "unknown",
