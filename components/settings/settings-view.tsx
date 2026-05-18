@@ -9,22 +9,13 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Slider } from "@/components/ui/slider"
 import { StatusBadge } from "@/components/dashboard/status-badge"
-import { generateServices } from "@/lib/mock-data"
+import { useConfig } from "@/hooks/useConfig"
 import { useI18n } from "@/lib/i18n"
 import { toast } from "sonner"
 
-const iconFor: Record<string, typeof ServerCog> = {
-  livekit: ServerCog,
-  redis: Database,
-  turn: Globe2,
-  api: Plug,
-  ws: Plug,
-  egress: RefreshCw,
-}
-
 export function SettingsView() {
   const { t } = useI18n()
-  const [services] = useState(() => generateServices())
+  const { config, loading, error } = useConfig()
   const [maxParticipants, setMaxParticipants] = useState([500])
   const [maxBitrate, setMaxBitrate] = useState([5000])
 
@@ -47,49 +38,43 @@ export function SettingsView() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {services.map((s) => {
-            const Icon = iconFor[s.id] ?? ServerCog
-            return (
-              <div key={s.id} className="rounded-xl bg-accent/30 ring-1 ring-border p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="size-9 rounded-xl bg-primary/15 ring-1 ring-primary/20 grid place-items-center">
-                      <Icon className="size-4 text-primary" />
+        <div className="space-y-3">
+          {error && (
+            <div className="p-4 bg-destructive/10 ring-1 ring-destructive/20 rounded-lg text-sm text-destructive">
+              {error}
+            </div>
+          )}
+          {config && (
+            <div className="rounded-xl bg-accent/30 ring-1 ring-border p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-2">
+                  <div className="font-semibold">LiveKit Server</div>
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <div>
+                      <span className="text-foreground">URL:</span> {config.url || "not configured"}
                     </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold truncate">{s.name}</div>
-                      <div className="text-[11px] text-muted-foreground font-mono truncate">{s.containerId}</div>
+                    <div>
+                      <span className="text-foreground">Region:</span> {config.region}
+                    </div>
+                    <div>
+                      <span className="text-foreground">API Key:</span> {config.hasApiKey ? "✓ configured" : "✗ missing"}
+                    </div>
+                    <div>
+                      <span className="text-foreground">API Secret:</span> {config.hasApiSecret ? "✓ configured" : "✗ missing"}
                     </div>
                   </div>
-                  <StatusBadge variant={s.status} pulse={s.status === "healthy"}>
-                    {t(`common.${s.status}`)}
-                  </StatusBadge>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-mono">
-                  <div className="rounded-lg bg-card ring-1 ring-border px-2 py-1.5">
-                    <div className="text-muted-foreground">version</div>
-                    <div>{s.version}</div>
-                  </div>
-                  <div className="rounded-lg bg-card ring-1 ring-border px-2 py-1.5">
-                    <div className="text-muted-foreground">uptime</div>
-                    <div>{s.uptime}</div>
-                  </div>
-                </div>
-                <div className="mt-3 grid grid-cols-3 gap-1">
-                  <Button variant="outline" size="sm" onClick={() => toast.success(`Restarting ${s.name}…`)}>
-                    <RotateCw className="size-3.5" />
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <ScrollText className="size-3.5" />
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <RefreshCw className="size-3.5" />
-                  </Button>
-                </div>
+                <StatusBadge variant={config.configured ? "healthy" : "degraded"} pulse={config.configured}>
+                  {config.configured ? t("common.healthy") : "unconfigured"}
+                </StatusBadge>
               </div>
-            )
-          })}
+            </div>
+          )}
+          {loading && (
+            <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+              Loading configuration…
+            </div>
+          )}
         </div>
       </div>
 

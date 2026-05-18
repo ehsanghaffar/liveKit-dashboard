@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, ChevronRight, Mic, MicOff, Video, VideoOff, MoreHorizontal, MessageSquare, UserMinus, Disc, Wifi, Globe2, Monitor } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -14,10 +13,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { generateParticipants, formatBytes, formatDuration, type Participant } from "@/lib/mock-data"
+import { type Participant } from "@/lib/mock-data"
+import { useParticipants } from "@/hooks/useParticipants"
 import { useI18n } from "@/lib/i18n"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
+import { cn, formatBytes, formatDuration } from "@/lib/utils"
 
 const initials = (n: string) => n.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()
 
@@ -25,7 +25,7 @@ const qualityVariant = (q: Participant["quality"]) => (q === "excellent" ? "live
 
 export function RoomDetailView({ roomId }: { roomId: string }) {
   const { t } = useI18n()
-  const [participants] = useState(() => generateParticipants(12))
+  const { participants, loading } = useParticipants(roomId)
 
   return (
     <div className="space-y-6">

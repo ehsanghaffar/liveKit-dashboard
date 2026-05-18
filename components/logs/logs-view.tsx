@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { generateLogs, type LogEntry, type LogLevel } from "@/lib/mock-data"
+import { type LogEntry, type LogLevel } from "@/lib/mock-data"
 import { useI18n } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
@@ -20,22 +20,48 @@ const levelStyles: Record<LogLevel, string> = {
 
 export function LogsView() {
   const { t } = useI18n()
-  const [logs, setLogs] = useState<LogEntry[]>(() => generateLogs(60).reverse())
+  const [logs, setLogs] = useState<LogEntry[]>([])
   const [paused, setPaused] = useState(false)
   const [level, setLevel] = useState<"all" | LogLevel>("all")
   const [query, setQuery] = useState("")
   const [view, setView] = useState<"raw" | "json">("raw")
   const [autoscroll, setAutoscroll] = useState(true)
+  const [loading, setLoading] = useState(true)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // Fetch webhook events from API
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        const res = await fetch('/api/events?limit=300')
+        if (res.ok) {
+          const data = await res.json()
+          setLogs(data.events || [])
+        }
+      } catch (err) {
+        console.error('Failed to fetch logs:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchLogs()
+  }, [])
+
+  // Poll for new webhook events
   useEffect(() => {
     if (paused) return
-    const id = setInterval(() => {
-      setLogs((prev) => {
-        const next = [...prev, ...generateLogs(1)]
-        return next.slice(-300)
-      })
-    }, 1200)
+    const id = setInterval(async () => {
+      try {
+        const res = await fetch('/api/events?limit=300')
+        if (res.ok) {
+          const data = await res.json()
+          setLogs(data.events || [])
+        }
+      } catch (err) {
+        console.error('Failed to fetch logs:', err)
+      }
+    }, 3000)
     return () => clearInterval(id)
   }, [paused])
 

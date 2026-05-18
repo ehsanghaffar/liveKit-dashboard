@@ -1,31 +1,27 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Activity, Cpu, MemoryStick, Network, Users, Radio, Clock4, Zap, Globe2, Plug } from "lucide-react"
+import { Activity, Cpu, MemoryStick, Network, Users, Radio, Clock4, Globe2, Plug } from "lucide-react"
 import { StatsCard } from "@/components/dashboard/stats-card"
 import { MetricChart } from "@/components/dashboard/metric-chart"
 import { StatusBadge } from "@/components/dashboard/status-badge"
 import { Button } from "@/components/ui/button"
-import { generateServices, generateRooms, formatDuration } from "@/lib/mock-data"
 import { useI18n } from "@/lib/i18n"
+import { useRooms } from "@/hooks/useRooms"
+import { useConfig } from "@/hooks/useConfig"
+import { formatDuration } from "@/lib/utils"
 import { ArrowRight } from "lucide-react"
 
 export function DashboardView() {
   const { t } = useI18n()
-  const [services] = useState(() => generateServices())
-  const [rooms] = useState(() => generateRooms(6))
-  const [tick, setTick] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => setTick((x) => x + 1), 3000)
-    return () => clearInterval(id)
-  }, [])
+  const { rooms } = useRooms()
+  const { config } = useConfig()
 
-  // gently animate live counts
-  const liveParticipants = 487 + ((tick * 7) % 23) - 11
-  const activeRooms = 24 + ((tick * 3) % 7) - 3
-  const bandwidth = (3.2 + Math.sin(tick / 3) * 0.4).toFixed(1)
-  const cpu = 38 + ((tick * 5) % 19) - 9
+  // Calculate real stats from rooms
+  const activeRoomsCount = rooms.filter((r) => r.status === "live").length
+  const liveParticipants = rooms.reduce((sum, r) => sum + r.participants, 0)
+  const bandwidth = (rooms.reduce((sum, r) => sum + r.bitrate, 0) / 1000).toFixed(1) // convert kbps to Gbps
+  const cpu = Math.min(100, Math.round((liveParticipants / 500) * 100)) // rough estimate
 
   return (
     <div className="space-y-8">
@@ -44,7 +40,7 @@ export function DashboardView() {
 
       {/* KPI grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard label={t("dashboard.activeRooms")} value={activeRooms} icon={Radio} accent="primary" trend={4.2} />
+        <StatsCard label={t("dashboard.activeRooms")} value={activeRoomsCount} icon={Radio} accent="primary" trend={4.2} />
         <StatsCard label={t("dashboard.participants")} value={liveParticipants} icon={Users} accent="blue" trend={2.1} />
         <StatsCard label={t("dashboard.bandwidth")} value={`${bandwidth} Gbps`} icon={Network} accent="amber" trend={-1.4} />
         <StatsCard label={t("dashboard.cpu")} value={`${cpu}%`} icon={Cpu} accent="primary" trend={0.6} hint="across 3 nodes" />
@@ -63,34 +59,30 @@ export function DashboardView() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <MetricChart title={t("dashboard.trafficChart")} description="Inbound + outbound" series="traffic" height={220} />
 
-        {/* Node health */}
+        {/* LiveKit configuration */}
         <div className="rounded-2xl bg-card ring-1 ring-border p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-semibold">{t("dashboard.nodeHealth")}</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Docker services</p>
+              <p className="text-xs text-muted-foreground mt-0.5">LiveKit configuration</p>
             </div>
             <Link href="/settings" className="text-xs text-primary hover:underline">
               {t("common.viewAll")}
             </Link>
           </div>
-          <div className="space-y-2">
-            {services.slice(0, 5).map((s) => (
-              <div key={s.id} className="flex items-center justify-between rounded-xl bg-accent/40 ring-1 ring-border px-3 py-2.5">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="size-8 rounded-lg bg-card grid place-items-center ring-1 ring-border">
-                    <Zap className="size-4 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">{s.name}</div>
-                    <div className="text-[11px] text-muted-foreground font-mono">{s.version} • {s.uptime}</div>
-                  </div>
-                </div>
-                <StatusBadge variant={s.status} pulse={s.status === "healthy"}>
-                  {t(`common.${s.status}`)}
-                </StatusBadge>
-              </div>
-            ))}
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <div className="rounded-xl bg-accent/40 ring-1 ring-border p-4">
+              <div className="font-semibold">Server URL</div>
+              <div className="text-xs">{config?.url ?? "Not configured"}</div>
+            </div>
+            <div className="rounded-xl bg-accent/40 ring-1 ring-border p-4">
+              <div className="font-semibold">API Key</div>
+              <div className="text-xs">{config?.hasApiKey ? "Configured" : "Missing"}</div>
+            </div>
+            <div className="rounded-xl bg-accent/40 ring-1 ring-border p-4">
+              <div className="font-semibold">API Secret</div>
+              <div className="text-xs">{config?.hasApiSecret ? "Configured" : "Missing"}</div>
+            </div>
           </div>
         </div>
 

@@ -23,14 +23,16 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { StatusBadge } from "@/components/dashboard/status-badge"
-import { generateRooms, formatDuration, formatBytes } from "@/lib/mock-data"
+import { useRooms } from "@/hooks/useRooms"
 import { useI18n } from "@/lib/i18n"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
+import { cn, formatBytes, formatDuration } from "@/lib/utils"
+
+const REGIONS = ["us-east-1", "us-west-2", "eu-west-1", "ap-southeast-1", "me-central-1"]
 
 export function RoomsView() {
   const { t } = useI18n()
-  const [rooms] = useState(() => generateRooms(14))
+  const { rooms, loading } = useRooms()
   const [query, setQuery] = useState("")
   const [region, setRegion] = useState<string>("all")
   const [selected, setSelected] = useState<Set<string>>(new Set())

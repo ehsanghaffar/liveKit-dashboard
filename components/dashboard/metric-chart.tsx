@@ -3,8 +3,37 @@
 import { useEffect, useState } from "react"
 import { Area, AreaChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
-import { generateMultiSeries, generateTimeSeries } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
+
+function generateTimeSeries(points = 60, base = 50, jitter = 20) {
+  let v = base
+  return Array.from({ length: points }).map((_, i) => {
+    v = Math.max(0, Math.min(100, v + (Math.random() - 0.5) * jitter))
+    return {
+      t: i,
+      label: `${points - i}m`,
+      value: Math.round(v),
+    }
+  })
+}
+
+function generateMultiSeries(points = 60) {
+  let cpu = 42, ram = 58, net = 35, participants = 80
+  return Array.from({ length: points }).map((_, i) => {
+    cpu = Math.max(5, Math.min(95, cpu + (Math.random() - 0.5) * 12))
+    ram = Math.max(15, Math.min(92, ram + (Math.random() - 0.5) * 6))
+    net = Math.max(0, Math.min(100, net + (Math.random() - 0.5) * 18))
+    participants = Math.max(10, Math.min(320, participants + (Math.random() - 0.5) * 30))
+    return {
+      t: i,
+      label: `${points - i}m`,
+      cpu: Math.round(cpu),
+      ram: Math.round(ram),
+      net: Math.round(net),
+      participants: Math.round(participants),
+    }
+  })
+}
 
 export function MetricChart({
   title,
