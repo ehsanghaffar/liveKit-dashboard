@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 
 interface EgressSession {
   egressId: string
@@ -19,46 +19,50 @@ interface UseEgressReturn {
   refetch: () => Promise<void>
 }
 
-const POLLING_INTERVAL = 5000 // 5 seconds
+const POLLING_INTERVAL = 5000
 
-/**
- * Hook to fetch and poll active egress (recording) sessions
- * Automatically refetches at regular intervals
- */
 export function useEgress(): UseEgressReturn {
   const [egresses, setEgresses] = useState<EgressSession[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   const fetchEgress = useCallback(async () => {
+    abortRef.current?.abort()
+    abortRef.current = new AbortController()
+    const signal = abortRef.current.signal
     try {
       setError(null)
-      const res = await fetch('/api/egress')
-
+      const res = await fetch('/api/egress', { signal })
+      if (signal.aborted) return
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error || `HTTP ${res.status}`)
       }
-
       const data = await res.json()
-      setEgresses(data.egresses || [])
+      if (!signal.aborted) setEgresses(data.egresses || [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch egress sessions')
-      setEgresses([])
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      if (!signal.aborted) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch egress sessions')
+        setEgresses([])
+      }
     } finally {
-      setLoading(false)
+      if (!signal.aborted) setLoading(false)
     }
   }, [])
 
-  // Initial fetch
   useEffect(() => {
     fetchEgress()
+    return () => { abortRef.current?.abort() }
   }, [fetchEgress])
 
-  // Setup polling interval
   useEffect(() => {
     const interval = setInterval(fetchEgress, POLLING_INTERVAL)
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      abortRef.current?.abort()
+    }
   }, [fetchEgress])
 
   return { egresses, loading, error, refetch: fetchEgress }

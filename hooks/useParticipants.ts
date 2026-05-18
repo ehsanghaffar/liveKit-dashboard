@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import type { Participant } from '@/lib/mock-data'
 
 interface UseParticipantsReturn {
@@ -10,18 +10,13 @@ interface UseParticipantsReturn {
   refetch: () => Promise<void>
 }
 
-const POLLING_INTERVAL = 3000 // 3 seconds
+const POLLING_INTERVAL = 3000
 
-/**
- * Hook to fetch and poll participants in a room
- * Automatically refetches at regular intervals
- *
- * @param roomName - Name of the room to fetch participants from
- */
 export function useParticipants(roomName: string | undefined): UseParticipantsReturn {
   const [participants, setParticipants] = useState<Participant[]>([])
   const [loading, setLoading] = useState(!roomName)
   const [error, setError] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   const fetchParticipants = useCallback(async () => {
     if (!roomName) {
@@ -30,37 +25,43 @@ export function useParticipants(roomName: string | undefined): UseParticipantsRe
       return
     }
 
+    abortRef.current?.abort()
+    abortRef.current = new AbortController()
+    const signal = abortRef.current.signal
     try {
       setError(null)
       const encodedRoom = encodeURIComponent(roomName)
-      const res = await fetch(`/api/rooms/${encodedRoom}`)
-
+      const res = await fetch(`/api/rooms/${encodedRoom}`, { signal })
+      if (signal.aborted) return
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error || `HTTP ${res.status}`)
       }
-
       const data = await res.json()
-      setParticipants(data.participants || [])
+      if (!signal.aborted) setParticipants(data.participants || [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch participants')
-      setParticipants([])
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      if (!signal.aborted) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch participants')
+        setParticipants([])
+      }
     } finally {
-      setLoading(false)
+      if (!signal.aborted) setLoading(false)
     }
   }, [roomName])
 
-  // Initial fetch
   useEffect(() => {
     fetchParticipants()
+    return () => { abortRef.current?.abort() }
   }, [fetchParticipants])
 
-  // Setup polling interval (only when roomName is set)
   useEffect(() => {
     if (!roomName) return
-
     const interval = setInterval(fetchParticipants, POLLING_INTERVAL)
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      abortRef.current?.abort()
+    }
   }, [roomName, fetchParticipants])
 
   return { participants, loading, error, refetch: fetchParticipants }
