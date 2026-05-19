@@ -25,3 +25,7 @@ export function recordWebhookEvent(e: StoredWebhookEvent) {
 export function listWebhookEvents(limit = 100): StoredWebhookEvent[] {
   return events.slice(0, Math.min(limit, events.length))
 }
+
+export function clearWebhookEvents() {
+  events.length = 0
+}

@@ -8,6 +8,9 @@ export interface LiveKitConfigStatus {
   hasApiKey: boolean
   hasApiSecret: boolean
   region: string
+  connectionStatus: "connected" | "error" | "not_configured" | "unknown"
+  roomCount: number
+  error: string | null
 }
 
 interface UseConfigReturn {
