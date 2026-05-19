@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ServerCog, Database, Globe2, Plug, RefreshCw, ScrollText, RotateCw, Heart, Webhook } from "lucide-react"
+import { ServerCog, Database, Globe2, Plug, RefreshCw, ScrollText, RotateCw, Heart, Webhook, CheckCircle2, XCircle, AlertCircle, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,29 +12,63 @@ import { StatusBadge } from "@/components/dashboard/status-badge"
 import { useConfig } from "@/hooks/useConfig"
 import { useI18n } from "@/lib/i18n"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 export function SettingsView() {
   const { t } = useI18n()
-  const { config, loading, error } = useConfig()
+  const { config, loading, error, refetch } = useConfig()
   const [maxParticipants, setMaxParticipants] = useState([500])
   const [maxBitrate, setMaxBitrate] = useState([5000])
+  const [testingConnection, setTestingConnection] = useState(false)
+
+  async function testConnection() {
+    setTestingConnection(true)
+    try {
+      await refetch()
+      if (config?.connectionStatus === "connected") {
+        toast.success(`Connected to LiveKit! Found ${config.roomCount} rooms.`)
+      } else if (config?.connectionStatus === "error") {
+        toast.error(`Connection failed: ${config.error}`)
+      }
+    } catch {
+      toast.error("Failed to test connection")
+    } finally {
+      setTestingConnection(false)
+    }
+  }
+
+  const connectionStatusConfig = {
+    connected: { icon: CheckCircle2, color: "text-success", bg: "bg-success/10", ring: "ring-success/20", label: "Connected" },
+    error: { icon: XCircle, color: "text-destructive", bg: "bg-destructive/10", ring: "ring-destructive/20", label: "Connection Error" },
+    not_configured: { icon: AlertCircle, color: "text-warning", bg: "bg-warning/10", ring: "ring-warning/20", label: "Not Configured" },
+    unknown: { icon: AlertCircle, color: "text-muted-foreground", bg: "bg-muted", ring: "ring-border", label: "Unknown" },
+  }
+
+  const statusInfo = connectionStatusConfig[config?.connectionStatus || "unknown"]
+  const StatusIcon = statusInfo.icon
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl lg:text-3xl font-semibold tracking-tight">{t("settings.title")}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{t("settings.subtitle")}</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-semibold tracking-tight">{t("settings.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("settings.subtitle")}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={refetch}>
+          <RefreshCw className="size-4" /> Refresh
+        </Button>
       </div>
 
       {/* Server management */}
       <div className="rounded-2xl bg-card ring-1 ring-border p-6">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-base font-semibold">{t("server.title")}</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Docker container orchestration</p>
+            <h2 className="text-base font-semibold">{t("server.title") || "Server Connection"}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">LiveKit server status and configuration</p>
           </div>
-          <Button variant="outline" size="sm">
-            <Heart className="size-4" /> {t("server.health")}
+          <Button variant="outline" size="sm" onClick={testConnection} disabled={testingConnection || loading}>
+            {testingConnection ? <RotateCw className="size-4 animate-spin" /> : <Heart className="size-4" />}
+            {testingConnection ? "Testing..." : "Test Connection"}
           </Button>
         </div>
 
@@ -44,35 +78,46 @@ export function SettingsView() {
               {error}
             </div>
           )}
-          {config && (
-            <div className="rounded-xl bg-accent/30 ring-1 ring-border p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="space-y-2">
-                  <div className="font-semibold">LiveKit Server</div>
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <div>
-                      <span className="text-foreground">URL:</span> {config.url || "not configured"}
-                    </div>
-                    <div>
-                      <span className="text-foreground">Region:</span> {config.region}
-                    </div>
-                    <div>
-                      <span className="text-foreground">API Key:</span> {config.hasApiKey ? "✓ configured" : "✗ missing"}
-                    </div>
-                    <div>
-                      <span className="text-foreground">API Secret:</span> {config.hasApiSecret ? "✓ configured" : "✗ missing"}
-                    </div>
-                  </div>
-                </div>
-                <StatusBadge variant={config.configured ? "healthy" : "degraded"} pulse={config.configured}>
-                  {config.configured ? t("common.healthy") : "unconfigured"}
-                </StatusBadge>
-              </div>
-            </div>
-          )}
           {loading && (
             <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground">
               Loading configuration…
+            </div>
+          )}
+          {config && (
+            <div className="rounded-xl bg-accent/30 ring-1 ring-border p-4">
+              <div className="flex items-start justify-between gap-2 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={cn("size-10 rounded-xl ring-1 grid place-items-center", statusInfo.bg, statusInfo.ring)}>
+                    <StatusIcon className={cn("size-5", statusInfo.color)} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold">{statusInfo.label}</div>
+                    <div className="text-[11px] text-muted-foreground font-mono">{config.url || "No URL configured"}</div>
+                  </div>
+                </div>
+                <StatusBadge variant={config.connectionStatus === "connected" ? "healthy" : "degraded"} pulse={config.connectionStatus === "connected"}>
+                  {config.connectionStatus === "connected" ? "Healthy" : "Unhealthy"}
+                </StatusBadge>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="rounded-lg bg-background/50 ring-1 ring-border p-2.5">
+                  <div className="text-muted-foreground">URL</div>
+                  <div className="font-mono truncate mt-0.5">{config.url || "—"}</div>
+                </div>
+                <div className="rounded-lg bg-background/50 ring-1 ring-border p-2.5">
+                  <div className="text-muted-foreground">Region</div>
+                  <div className="font-mono mt-0.5">{config.region}</div>
+                </div>
+                <div className="rounded-lg bg-background/50 ring-1 ring-border p-2.5">
+                  <div className="text-muted-foreground">API Key</div>
+                  <div className="font-mono mt-0.5">{config.hasApiKey ? "✓ Set" : "✗ Missing"}</div>
+                </div>
+                <div className="rounded-lg bg-background/50 ring-1 ring-border p-2.5">
+                  <div className="text-muted-foreground">Active Rooms</div>
+                  <div className="font-mono mt-0.5">{config.roomCount ?? "—"}</div>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -94,7 +139,7 @@ export function SettingsView() {
           <SettingsCard title="Cluster">
             <Field label="Cluster name" defaultValue="livekit-prod-eu" />
             <Field label="Public hostname" defaultValue="rtc.example.com" mono />
-            <Field label="Region" defaultValue="us-east-1" />
+            <Field label="Region" defaultValue={config?.region || "auto"} />
             <ToggleField label="Auto-scaling" desc="Scale workers based on participant load" defaultChecked />
           </SettingsCard>
         </TabsContent>
@@ -111,9 +156,30 @@ export function SettingsView() {
 
         <TabsContent value="api" className="mt-4">
           <SettingsCard title="API Keys">
-            <Field label="API key" defaultValue="APIabc123def456ghi" mono />
-            <Field label="API secret" defaultValue="••••••••••••••••••••••••" mono type="password" />
-            <Field label="Webhook URL" defaultValue="https://api.example.com/livekit/webhook" mono />
+            <div className="rounded-xl bg-accent/30 ring-1 ring-border p-4 mb-4">
+              <div className="flex items-center gap-3">
+                <Plug className="size-5 text-primary" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold">Current Configuration</div>
+                  <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                    LIVEKIT_URL={config?.url || "not set"}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground font-mono">
+                    LIVEKIT_API_KEY={config?.hasApiKey ? "****" : "not set"}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground font-mono">
+                    LIVEKIT_API_SECRET={config?.hasApiSecret ? "****" : "not set"}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Field label="Webhook URL" defaultValue={`${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/livekit`} mono />
+            <Button variant="outline" size="sm" className="mt-2" onClick={() => {
+              navigator.clipboard.writeText(`${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/livekit`)
+              toast.success("Webhook URL copied")
+            }}>
+              <Copy className="size-4 me-1" /> Copy Webhook URL
+            </Button>
           </SettingsCard>
         </TabsContent>
 
@@ -164,12 +230,17 @@ export function SettingsView() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold">Production webhook</div>
-                  <div className="text-[11px] text-muted-foreground font-mono truncate">https://api.example.com/livekit/webhook</div>
+                  <div className="text-[11px] text-muted-foreground font-mono truncate">
+                    {typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/livekit
+                  </div>
                 </div>
                 <StatusBadge variant="healthy" pulse>active</StatusBadge>
               </div>
             </div>
-            <Button variant="outline" size="sm">+ Add webhook</Button>
+            <div className="mt-3 text-xs text-muted-foreground">
+              <p>Configure this URL in your LiveKit Cloud dashboard or self-hosted server configuration.</p>
+              <p className="mt-1">Webhooks receive events for: room created/deleted, participant joined/left, track published/unpublished, egress started/stopped.</p>
+            </div>
           </SettingsCard>
         </TabsContent>
       </Tabs>

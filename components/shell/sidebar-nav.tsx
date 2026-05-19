@@ -2,13 +2,14 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Radio, KeyRound, Activity, ScrollText, Settings, ServerCog } from "lucide-react"
+import { LayoutDashboard, Radio, Users, KeyRound, Activity, ScrollText, Settings, ServerCog } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useI18n } from "@/lib/i18n"
 
 const items = [
   { href: "/dashboard", icon: LayoutDashboard, key: "nav.dashboard" },
   { href: "/rooms", icon: Radio, key: "nav.rooms" },
+  { href: "/users", icon: Users, key: "nav.users" },
   { href: "/tokens", icon: KeyRound, key: "nav.tokens" },
   { href: "/monitoring", icon: Activity, key: "nav.monitoring" },
   { href: "/logs", icon: ScrollText, key: "nav.logs" },
